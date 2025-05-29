@@ -50,7 +50,7 @@ class RLWalk:
         onnx_model_path: str,  # ONNX模型路径
         duck_config_path: str = None,  # 鸭子配置文件路径
         serial_port: str = "/dev/ttyACM0",  # 串口设备路径
-        control_freq: float = 50,  # 控制频率（Hz）
+        control_freq: float = 40,  # 控制频率（Hz）
         pid=[30, 0, 0],  # PID控制参数 [P, I, D]
         action_scale=0.25,  # 动作缩放因子
         pitch_bias=0,  # 俯仰角偏置
@@ -347,9 +347,9 @@ class RLWalk:
         elif voice_cmd == 'backward':
             self.last_commands = [-0.15, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 向后
         elif voice_cmd == 'left':
-            self.last_commands = [0.0, 0.15, 0.0, 0.0, 0.0, 0.0, 0.0]  # 向左
+            self.last_commands = [0.0, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0]  # 向左
         elif voice_cmd == 'right':
-            self.last_commands = [0.0, -0.15, 0.0, 0.0, 0.0, 0.0, 0.0]  # 向右
+            self.last_commands = [0.0, -0.3, 0.0, 0.0, 0.0, 0.0, 0.0]  # 向右
         elif voice_cmd == 'turn_left':
             self.last_commands = [0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0]  # 左转
         elif voice_cmd == 'turn_right':
