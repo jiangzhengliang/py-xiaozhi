@@ -55,7 +55,6 @@ class Duck(Thing):
         
         # 注册方法
         self.add_method("Start", "启动鸭子机器人（自动初始化并启动控制循环）", [], lambda params: self._start())
-        self.add_method("Stop", "停止鸭子机器人控制循环", [], lambda params: self._stop())
         self.add_method("MoveForward", "向前走", [], lambda params: self._move_forward())
         self.add_method("MoveBackward", "向后走", [], lambda params: self._move_backward())
         self.add_method("MoveLeft", "向左走", [], lambda params: self._move_left())
@@ -124,23 +123,7 @@ class Duck(Thing):
             self.current_status = "error"
             return {"status": "error", "message": error_msg}
     
-    def _stop(self):
-        """停止鸭子机器人控制循环"""
-        if not self.is_running:
-            return {"status": "success", "message": "鸭子机器人已经停止"}
-        
-        try:
-            self.rl_walk.stop_control_loop()
-            self.is_running = False
-            self.current_status = "stopped"
-            
-            print("[鸭子机器人] 控制循环停止成功")
-            return {"status": "success", "message": "鸭子机器人控制循环停止成功"}
-            
-        except Exception as e:
-            error_msg = f"停止鸭子机器人控制循环失败: {str(e)}"
-            print(f"[鸭子机器人] {error_msg}")
-            return {"status": "error", "message": error_msg}
+
     
     def _ensure_running(self):
         """确保鸭子机器人正在运行"""
@@ -355,6 +338,7 @@ class Duck(Thing):
         """析构函数，确保资源清理"""
         try:
             if self.is_running and self.rl_walk:
-                self.rl_walk.stop_control_loop()
+                # 不再调用stop_control_loop，因为该方法已被删除
+                pass
         except:
             pass

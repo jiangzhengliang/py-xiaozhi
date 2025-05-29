@@ -191,7 +191,7 @@ class RLWalk:
         设置语音命令
         
         Args:
-            command (str): 语音命令 ('forward', 'backward', 'left', 'right', 'turn_left', 'turn_right', 'stop')
+            command (str): 语音命令 ('forward', 'backward', 'left', 'right', 'turn_left', 'turn_right')
         """
         with self.voice_command_lock:
             self.voice_command = command
@@ -337,8 +337,7 @@ class RLWalk:
         voice_cmd = self.get_voice_command()
         
         if voice_cmd is None:
-            # 没有语音命令，停止移动
-            self.last_commands = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+            # 没有语音命令，保持当前状态
             return
 
         # 根据语音命令设置控制参数（只修改前3维，保持头部控制为0）
@@ -354,10 +353,6 @@ class RLWalk:
             self.last_commands = [0.0, 0.0, 0.5, 0.0, 0.0, 0.0, 0.0]  # 左转
         elif voice_cmd == 'turn_right':
             self.last_commands = [0.0, 0.0, -0.5, 0.0, 0.0, 0.0, 0.0]  # 右转
-        elif voice_cmd == 'stop':
-            self.last_commands = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 停止
-        else:
-            self.last_commands = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 未知命令，停止
 
     def start_control_loop(self):
         """
@@ -370,13 +365,7 @@ class RLWalk:
         self.control_thread = threading.Thread(target=self.run, daemon=True)
         self.control_thread.start()
 
-    def stop_control_loop(self):
-        """
-        停止控制循环
-        """
-        self.running = False
-        if self.control_thread:
-            self.control_thread.join(timeout=1.0)
+
 
     def run(self):
         """
