@@ -145,14 +145,19 @@ class Duck(Thing):
     def _ensure_running(self):
         """确保鸭子机器人正在运行"""
         if not self.is_running:
-            self._start()
+            # 如果已经停止，需要手动重新启动
+            return {"status": "error", "message": "鸭子机器人已停止，请先说'启动鸭子机器人'"}
+        return {"status": "success"}
     
     def _move_forward(self):
         """向前走5秒"""
         try:
-            self._ensure_running()
+            # 检查是否正在运行
+            running_check = self._ensure_running()
+            if running_check["status"] != "success":
+                return running_check
             
-            # 强制切换为非头部控制模式
+            # 确保机器人处于运行状态（如果被暂停则恢复）
             self.rl_walk.resume()
             
             # 设置语音命令
@@ -171,9 +176,12 @@ class Duck(Thing):
     def _move_backward(self):
         """向后走5秒"""
         try:
-            self._ensure_running()
+            # 检查是否正在运行
+            running_check = self._ensure_running()
+            if running_check["status"] != "success":
+                return running_check
             
-            # 强制切换为非头部控制模式
+            # 确保机器人处于运行状态（如果被暂停则恢复）
             self.rl_walk.resume()
             
             # 设置语音命令
@@ -192,9 +200,12 @@ class Duck(Thing):
     def _move_left(self):
         """向左走5秒"""
         try:
-            self._ensure_running()
+            # 检查是否正在运行
+            running_check = self._ensure_running()
+            if running_check["status"] != "success":
+                return running_check
             
-            # 强制切换为非头部控制模式
+            # 确保机器人处于运行状态（如果被暂停则恢复）
             self.rl_walk.resume()
             
             # 设置语音命令
@@ -213,9 +224,12 @@ class Duck(Thing):
     def _move_right(self):
         """向右走5秒"""
         try:
-            self._ensure_running()
+            # 检查是否正在运行
+            running_check = self._ensure_running()
+            if running_check["status"] != "success":
+                return running_check
             
-            # 强制切换为非头部控制模式
+            # 确保机器人处于运行状态（如果被暂停则恢复）
             self.rl_walk.resume()
             
             # 设置语音命令
@@ -234,9 +248,12 @@ class Duck(Thing):
     def _turn_left(self):
         """向左转弯5秒"""
         try:
-            self._ensure_running()
+            # 检查是否正在运行
+            running_check = self._ensure_running()
+            if running_check["status"] != "success":
+                return running_check
             
-            # 强制切换为非头部控制模式
+            # 确保机器人处于运行状态（如果被暂停则恢复）
             self.rl_walk.resume()
             
             # 设置语音命令
@@ -255,9 +272,12 @@ class Duck(Thing):
     def _turn_right(self):
         """向右转弯5秒"""
         try:
-            self._ensure_running()
+            # 检查是否正在运行
+            running_check = self._ensure_running()
+            if running_check["status"] != "success":
+                return running_check
             
-            # 强制切换为非头部控制模式
+            # 确保机器人处于运行状态（如果被暂停则恢复）
             self.rl_walk.resume()
             
             # 设置语音命令
@@ -278,6 +298,9 @@ class Duck(Thing):
         if not self.is_initialized or not self.rl_walk:
             return {"status": "error", "message": "鸭子机器人未初始化"}
         
+        if not self.is_running:
+            return {"status": "error", "message": "鸭子机器人未启动，请先说'启动鸭子机器人'"}
+        
         try:
             self.rl_walk.pause()
             self.current_status = "paused"
@@ -294,6 +317,9 @@ class Duck(Thing):
         """恢复鸭子机器人"""
         if not self.is_initialized or not self.rl_walk:
             return {"status": "error", "message": "鸭子机器人未初始化"}
+        
+        if not self.is_running:
+            return {"status": "error", "message": "鸭子机器人未启动，请先说'启动鸭子机器人'"}
         
         try:
             self.rl_walk.resume()
