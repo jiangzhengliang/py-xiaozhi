@@ -54,8 +54,7 @@ class Duck(Thing):
         self.add_property("hardware_available", "硬件是否可用", lambda: self.hardware_available)
         
         # 注册方法
-        self.add_method("Initialize", "初始化鸭子机器人", [], lambda params: self._initialize())
-        self.add_method("Start", "启动鸭子机器人控制循环", [], lambda params: self._start())
+        self.add_method("Start", "启动鸭子机器人（自动初始化并启动控制循环）", [], lambda params: self._start())
         self.add_method("Stop", "停止鸭子机器人控制循环", [], lambda params: self._stop())
         self.add_method("MoveForward", "向前走", [], lambda params: self._move_forward())
         self.add_method("MoveBackward", "向后走", [], lambda params: self._move_backward())
@@ -100,23 +99,27 @@ class Duck(Thing):
             return {"status": "error", "message": error_msg}
     
     def _start(self):
-        """启动鸭子机器人控制循环"""
-        if not self.is_initialized:
-            return {"status": "error", "message": "请先初始化鸭子机器人"}
-        
+        """启动鸭子机器人（自动初始化并启动控制循环）"""
         if self.is_running:
             return {"status": "success", "message": "鸭子机器人已经在运行"}
         
         try:
+            # 如果未初始化，先初始化
+            if not self.is_initialized:
+                init_result = self._initialize()
+                if init_result["status"] != "success":
+                    return init_result
+            
+            # 启动控制循环
             self.rl_walk.start_control_loop()
             self.is_running = True
             self.current_status = "running"
             
-            print("[鸭子机器人] 控制循环启动成功")
-            return {"status": "success", "message": "鸭子机器人控制循环启动成功"}
+            print("[鸭子机器人] 启动成功（已初始化并启动控制循环）")
+            return {"status": "success", "message": "鸭子机器人启动成功"}
             
         except Exception as e:
-            error_msg = f"启动鸭子机器人控制循环失败: {str(e)}"
+            error_msg = f"启动鸭子机器人失败: {str(e)}"
             print(f"[鸭子机器人] {error_msg}")
             self.current_status = "error"
             return {"status": "error", "message": error_msg}
@@ -141,9 +144,6 @@ class Duck(Thing):
     
     def _ensure_running(self):
         """确保鸭子机器人正在运行"""
-        if not self.is_initialized:
-            self._initialize()
-        
         if not self.is_running:
             self._start()
     

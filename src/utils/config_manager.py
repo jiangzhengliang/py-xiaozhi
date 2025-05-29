@@ -57,9 +57,9 @@ class ConfigManager:
             },
         },
         "WAKE_WORD_OPTIONS": {
-            "USE_WAKE_WORD": False,
+            "USE_WAKE_WORD": True,
             "MODEL_PATH": "models/vosk-model-small-cn-0.22",
-            "WAKE_WORDS": ["小智", "小美"],
+            "WAKE_WORDS": ["小鸭小鸭", "你好小鸭"],
         },
         "TEMPERATURE_SENSOR_MQTT_INFO": {
             "endpoint": "你的Mqtt连接地址",
