@@ -1221,6 +1221,7 @@ class Application:
 
         # 导入新的倒计时器设备
         from src.iot.things.countdown_timer import CountdownTimer
+        from src.iot.things.duck import Duck
         from src.iot.things.lamp import Lamp
         from src.iot.things.music_player import MusicPlayer
         from src.iot.things.speaker import Speaker
@@ -1238,6 +1239,10 @@ class Application:
         # 添加倒计时器设备
         thing_manager.add_thing(CountdownTimer())
         logger.info("已添加倒计时器设备,用于计时执行命令用")
+
+        # 添加鸭子设备
+        thing_manager.add_thing(Duck())
+        logger.info("已添加鸭子设备,支持移动和测试功能")
 
         # 判断是否配置了home assistant才注册
         if self.config.get_config("HOME_ASSISTANT.TOKEN"):
