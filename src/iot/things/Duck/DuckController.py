@@ -24,6 +24,17 @@ except ImportError as e:
     print(f"[警告] Duck运行时模块导入失败: {e}")
     DUCK_RUNTIME_AVAILABLE = False
 
+# 添加Xbox控制器和表达组件导入
+try:
+    from xbox_controller import XBoxController
+    from antennas import Antennas
+    from sounds import Sounds
+    from projector import Projector
+    XBOX_AVAILABLE = True
+except ImportError as e:
+    print(f"[警告] Xbox控制器或表达组件导入失败: {e}")
+    XBOX_AVAILABLE = False
+
 # OpenAI API相关
 try:
     from openai import OpenAI
@@ -42,7 +53,9 @@ class DuckController:
         # 初始化标志
         self.initialized = False
         self.running = False
+        self.paused = False  # 添加暂停状态
         self.control_thread = None
+        self.xbox_monitor_thread = None
         
         # 运动控制参数
         self.current_command = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # [vx, vy, vyaw, head_pitch, head_yaw, head_roll, antenna]
@@ -55,6 +68,12 @@ class DuckController:
         self.feet_contacts = None
         self.camera = None
         self.duck_config = None
+        
+        # 控制器和表达组件
+        self.xbox_controller = None
+        self.antennas = None
+        self.sounds = None
+        self.projector = None
         
         # 控制参数
         self.control_freq = 50
@@ -71,6 +90,11 @@ class DuckController:
         self.PRM = None
         self.imitation_i = 0
         self.imitation_phase = np.array([0, 0])
+        self.phase_frequency_factor = 1.0
+        self.phase_frequency_factor_offset = 0.0
+        
+        # 动作滤波器
+        self.action_filter = None
 
     def __new__(cls):
         """确保单例模式"""
@@ -97,6 +121,9 @@ class DuckController:
             # 加载配置
             duck_config_path = self._find_duck_config()
             self.duck_config = DuckConfig(config_json_path=duck_config_path)
+            
+            # 初始化暂停状态
+            self.paused = getattr(self.duck_config, 'start_paused', False)
             
             # 查找ONNX模型文件
             onnx_model_path = self._find_onnx_model()
@@ -131,6 +158,17 @@ class DuckController:
                 except Exception as e:
                     print(f"[警告] 摄像头初始化失败: {e}")
             
+            # 初始化Xbox控制器
+            if XBOX_AVAILABLE:
+                try:
+                    self.xbox_controller = XBoxController(command_freq=20)
+                    print("[真实设备] Xbox控制器初始化完成")
+                except Exception as e:
+                    print(f"[警告] Xbox控制器初始化失败: {e}")
+            
+            # 初始化表达组件
+            self._initialize_expression_components()
+            
             # 初始化运动参数
             self.init_pos = list(self.hwi.init_pos.values())
             self.motor_targets = np.array(self.init_pos.copy())
@@ -142,11 +180,21 @@ class DuckController:
                 self.PRM = PolyReferenceMotion(poly_coeff_path)
                 self.imitation_i = 0
                 self.imitation_phase = np.array([0, 0])
+                self.phase_frequency_factor_offset = getattr(self.duck_config, 'phase_frequency_factor_offset', 0.0)
+            
+            # 初始化动作滤波器
+            cutoff_frequency = getattr(self.duck_config, 'cutoff_frequency', None)
+            if cutoff_frequency is not None:
+                self.action_filter = LowPassActionFilter(self.control_freq, cutoff_frequency)
             
             self.initialized = True
             
             # 启动控制循环
             self._start_control_loop()
+            
+            # 启动Xbox监控
+            if self.xbox_controller:
+                self._start_xbox_monitor()
             
             print("[真实设备] 鸭子机器人初始化完成！")
             return {"status": "success", "message": "鸭子机器人初始化成功"}
@@ -154,6 +202,27 @@ class DuckController:
         except Exception as e:
             print(f"[错误] 鸭子初始化失败: {e}")
             return {"status": "error", "message": f"初始化失败: {str(e)}"}
+
+    def _initialize_expression_components(self):
+        """初始化表达组件"""
+        try:
+            # 初始化天线
+            if getattr(self.duck_config, 'antennas', False):
+                self.antennas = Antennas()
+                print("[真实设备] 天线初始化完成")
+            
+            # 初始化声音
+            if getattr(self.duck_config, 'speaker', False):
+                self.sounds = Sounds(volume=1.0, sound_directory="../mini_bdx_runtime/assets/")
+                print("[真实设备] 声音系统初始化完成")
+            
+            # 初始化投影仪
+            if getattr(self.duck_config, 'projector', False):
+                self.projector = Projector()
+                print("[真实设备] 投影仪初始化完成")
+                
+        except Exception as e:
+            print(f"[警告] 表达组件初始化失败: {e}")
 
     def _find_duck_config(self):
         """查找鸭子配置文件"""
@@ -230,6 +299,76 @@ class DuckController:
         self.control_thread.daemon = True
         self.control_thread.start()
 
+    def _start_xbox_monitor(self):
+        """启动Xbox控制器监控"""
+        if self.xbox_monitor_thread and self.xbox_monitor_thread.is_alive():
+            return
+        
+        self.xbox_monitor_thread = threading.Thread(target=self._xbox_monitor_loop)
+        self.xbox_monitor_thread.daemon = True
+        self.xbox_monitor_thread.start()
+
+    def _xbox_monitor_loop(self):
+        """Xbox控制器监控循环"""
+        print("[真实设备] 启动Xbox控制器监控")
+        
+        try:
+            while self.running and self.initialized:
+                if not self.xbox_controller:
+                    time.sleep(0.1)
+                    continue
+                
+                # 获取控制器状态
+                commands, buttons, left_trigger, right_trigger = self.xbox_controller.get_last_command()
+                
+                # 处理按键事件
+                if buttons.dpad_up.triggered:
+                    self.phase_frequency_factor_offset += 0.05
+                    print(f"Phase frequency factor offset {round(self.phase_frequency_factor_offset, 3)}")
+                
+                if buttons.dpad_down.triggered:
+                    self.phase_frequency_factor_offset -= 0.05
+                    print(f"Phase frequency factor offset {round(self.phase_frequency_factor_offset, 3)}")
+                
+                if buttons.LB.is_pressed:
+                    self.phase_frequency_factor = 1.3
+                else:
+                    self.phase_frequency_factor = 1.0
+                
+                if buttons.X.triggered:
+                    if self.projector:
+                        self.projector.switch()
+                        print("[真实设备] 投影仪状态切换")
+                
+                if buttons.B.triggered:
+                    if self.sounds:
+                        self.sounds.play_random_sound()
+                        print("[真实设备] 播放随机声音")
+                
+                if buttons.A.triggered:
+                    self.paused = not self.paused
+                    if self.paused:
+                        print("[真实设备] 暂停")
+                    else:
+                        print("[真实设备] 恢复")
+                
+                # 控制天线
+                if self.antennas:
+                    self.antennas.set_position_left(right_trigger)
+                    self.antennas.set_position_right(left_trigger)
+                
+                # 更新运动命令
+                if not self.paused:
+                    with self.command_lock:
+                        self.current_command = commands
+                
+                time.sleep(0.05)  # 20Hz更新频率
+                
+        except Exception as e:
+            print(f"[错误] Xbox监控循环异常: {e}")
+        finally:
+            print("[真实设备] Xbox监控循环结束")
+
     def _control_loop(self):
         """主控制循环"""
         print("[真实设备] 启动控制循环")
@@ -237,6 +376,11 @@ class DuckController:
         try:
             while self.running and self.initialized:
                 start_time = time.time()
+                
+                # 检查暂停状态
+                if self.paused:
+                    time.sleep(0.1)
+                    continue
                 
                 # 获取观测数据
                 obs = self._get_obs()
@@ -246,7 +390,7 @@ class DuckController:
                 
                 # 更新相位
                 if self.PRM:
-                    self.imitation_i += 1.0
+                    self.imitation_i += 1.0 * (self.phase_frequency_factor + self.phase_frequency_factor_offset)
                     self.imitation_i = self.imitation_i % self.PRM.nb_steps_in_period
                     self.imitation_phase = np.array([
                         np.cos(self.imitation_i / self.PRM.nb_steps_in_period * 2 * np.pi),
@@ -263,6 +407,12 @@ class DuckController:
                 
                 # 计算电机目标
                 self.motor_targets = self.init_pos + action * self.action_scale
+                
+                # 应用动作滤波
+                if self.action_filter is not None:
+                    self.action_filter.push(self.motor_targets)
+                    filtered_motor_targets = self.action_filter.get_filtered_action()
+                    self.motor_targets = filtered_motor_targets
                 
                 # 头部控制
                 with self.command_lock:
@@ -366,6 +516,47 @@ class DuckController:
         self._set_movement_command(vyaw=-0.5, duration=2.0)
         return {"status": "success", "message": "鸭子开始右转2秒"}
 
+    def move_antenna(self):
+        """动天线（耳朵）"""
+        if not self.initialized:
+            return {"status": "error", "message": "鸭子未初始化"}
+        
+        if not self.antennas:
+            return {"status": "error", "message": "天线不可用"}
+        
+        print("[真实设备] 鸭子开始动天线")
+        
+        # 让天线做一些有趣的动作
+        def antenna_dance():
+            try:
+                # 先抬起天线
+                self.antennas.set_position_left(0.8)
+                self.antennas.set_position_right(0.8)
+                time.sleep(0.5)
+                
+                # 交替摆动
+                for i in range(3):
+                    self.antennas.set_position_left(0.2)
+                    self.antennas.set_position_right(0.8)
+                    time.sleep(0.3)
+                    self.antennas.set_position_left(0.8)
+                    self.antennas.set_position_right(0.2)
+                    time.sleep(0.3)
+                
+                # 回到中位
+                self.antennas.set_position_left(0.0)
+                self.antennas.set_position_right(0.0)
+                
+                print("[真实设备] 天线动作完成")
+                
+            except Exception as e:
+                print(f"[错误] 天线动作失败: {e}")
+        
+        # 在单独线程中执行天线动作
+        threading.Thread(target=antenna_dance, daemon=True).start()
+        
+        return {"status": "success", "message": "鸭子开始动天线"}
+
     def take_photo(self):
         """拍照并分析内容"""
         if not self.initialized:
@@ -453,7 +644,17 @@ class DuckController:
     def shutdown(self):
         """关闭鸭子控制器"""
         self.running = False
+        
+        # 关闭控制线程
         if self.control_thread and self.control_thread.is_alive():
             self.control_thread.join(timeout=1)
+        
+        # 关闭Xbox监控线程
+        if self.xbox_monitor_thread and self.xbox_monitor_thread.is_alive():
+            self.xbox_monitor_thread.join(timeout=1)
+        
+        # 关闭天线
+        if self.antennas:
+            self.antennas.stop()
         
         print("[真实设备] 鸭子控制器已关闭") 

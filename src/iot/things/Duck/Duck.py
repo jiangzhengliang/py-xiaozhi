@@ -82,6 +82,27 @@ class Duck(Thing):
         )
         
         self.add_method(
+            "move_left", 
+            "向左走2秒，当指令为与左走有关时，调用该函数", 
+            [], 
+            lambda params: self.move_left()
+        )
+        
+        self.add_method(
+            "move_right", 
+            "向右走2秒", 
+            [], 
+            lambda params: self.move_right()
+        )
+        
+        self.add_method(
+            "move_antenna", 
+            "动耳朵", 
+            [], 
+            lambda params: self.move_antenna()
+        )
+        
+        self.add_method(
             "take_photo", 
             "拍照并分析内容", 
             [], 
@@ -148,6 +169,36 @@ class Duck(Thing):
         logger.info("鸭子开始右转")
         result = self.duck_controller.turn_right()
         self._trigger_voice_feedback("鸭子开始右转")
+        return result
+
+    def move_left(self):
+        """向左走"""
+        if not self.is_initialized:
+            return {"status": "error", "message": "鸭子未初始化，请先初始化"}
+        
+        logger.info("鸭子开始向左走")
+        result = self.duck_controller._set_movement_command(vy=0.2, duration=2.0)
+        self._trigger_voice_feedback("鸭子开始向左走")
+        return {"status": "success", "message": "鸭子开始向左走2秒"}
+
+    def move_right(self):
+        """向右走"""
+        if not self.is_initialized:
+            return {"status": "error", "message": "鸭子未初始化，请先初始化"}
+        
+        logger.info("鸭子开始向右走")
+        result = self.duck_controller._set_movement_command(vy=-0.2, duration=2.0)
+        self._trigger_voice_feedback("鸭子开始向右走")
+        return {"status": "success", "message": "鸭子开始向右走2秒"}
+
+    def move_antenna(self):
+        """动耳朵"""
+        if not self.is_initialized:
+            return {"status": "error", "message": "鸭子未初始化，请先初始化"}
+        
+        logger.info("鸭子开始动耳朵")
+        result = self.duck_controller.move_antenna()
+        self._trigger_voice_feedback("鸭子开始动耳朵")
         return result
 
     def take_photo(self):
