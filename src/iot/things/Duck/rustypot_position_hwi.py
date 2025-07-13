@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 import rustypot
-from mini_bdx_runtime.duck_config import DuckConfig
+from .duck_config import DuckConfig
 
 
 class HWI:

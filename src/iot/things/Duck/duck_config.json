@@ -8,7 +8,7 @@
         "antennas": false,
         "speaker": false,
         "microphone": false,
-        "camera": true
+        "camera": false
     },
     "joints_offsets": {
         "left_hip_yaw": 0.0,
@@ -26,4 +26,4 @@
         "right_knee": 0.0,
         "right_ankle": 0.0
     }
-} 
+}

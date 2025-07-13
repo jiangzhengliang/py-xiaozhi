@@ -7,7 +7,7 @@
 2. Xbox手柄输入控制
 3. IMU传感器数据处理
 4. 足部接触传感器
-5. 表情控制（眼睛、天线、投影仪、声音）
+5. 表情控制（眼睛、天线、投影仪）
 6. 50Hz实时控制循环
 """
 
@@ -15,19 +15,18 @@ import time
 import pickle
 
 import numpy as np
-from mini_bdx_runtime.rustypot_position_hwi import HWI
-from mini_bdx_runtime.onnx_infer import OnnxInfer
+from .rustypot_position_hwi import HWI
+from .onnx_infer import OnnxInfer
 
-from mini_bdx_runtime.raw_imu import Imu
-from mini_bdx_runtime.poly_reference_motion import PolyReferenceMotion
-from mini_bdx_runtime.xbox_controller import XBoxController
-from mini_bdx_runtime.feet_contacts import FeetContacts
-from mini_bdx_runtime.eyes import Eyes
-from mini_bdx_runtime.sounds import Sounds
-from mini_bdx_runtime.antennas import Antennas
-from mini_bdx_runtime.projector import Projector
-from mini_bdx_runtime.rl_utils import make_action_dict, LowPassActionFilter
-from mini_bdx_runtime.duck_config import DuckConfig
+from .raw_imu import Imu
+from .poly_reference_motion import PolyReferenceMotion
+from .xbox_controller import XBoxController
+from .feet_contacts import FeetContacts
+from .eyes import Eyes
+from .antennas import Antennas
+from .projector import Projector
+from .rl_utils import make_action_dict, LowPassActionFilter
+from .duck_config import DuckConfig
 
 import os
 
@@ -50,7 +49,7 @@ class RLWalk:
     def __init__(
         self,
         onnx_model_path: str,  # ONNX模型路径
-        duck_config_path: str = f"{HOME_DIR}/duck_config.json",  # 鸭子配置文件路径
+        duck_config_path: str = None,  # 鸭子配置文件路径
         serial_port: str = "/dev/ttyACM0",  # 串口设备路径
         control_freq: float = 50,  # 控制频率（Hz）
         pid=[30, 0, 0],  # PID控制参数 [P, I, D]
@@ -61,6 +60,10 @@ class RLWalk:
         replay_obs=None,  # 重放观测数据文件路径
         cutoff_frequency=None,  # 低通滤波器截止频率
     ):
+        # 设置默认配置文件路径
+        if duck_config_path is None:
+            duck_config_path = os.path.join(os.path.dirname(__file__), "duck_config.json")
+        
         # 加载鸭子配置
         self.duck_config = DuckConfig(config_json_path=duck_config_path)
 
@@ -139,7 +142,8 @@ class RLWalk:
             self.xbox_controller = XBoxController(self.command_freq)
 
         # 参考运动生成器（用于相位信息）
-        self.PRM = PolyReferenceMotion("./polynomial_coefficients.pkl")
+        poly_coeff_path = os.path.join(os.path.dirname(__file__), "polynomial_coefficients.pkl")
+        self.PRM = PolyReferenceMotion(poly_coeff_path)
         self.imitation_i = 0  # 模仿索引
         self.imitation_phase = np.array([0, 0])  # 相位信息
         self.phase_frequency_factor = 1.0  # 相位频率因子
@@ -152,10 +156,7 @@ class RLWalk:
             self.eyes = Eyes()
         if self.duck_config.projector:
             self.projector = Projector()
-        if self.duck_config.speaker:
-            self.sounds = Sounds(
-                volume=1.0, sound_directory="../mini_bdx_runtime/assets/"
-            )
+        # 不再初始化sounds，因为由小智智能体处理
         if self.duck_config.antennas:
             self.antennas = Antennas()
 
