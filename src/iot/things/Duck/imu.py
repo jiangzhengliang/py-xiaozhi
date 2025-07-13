@@ -55,6 +55,10 @@ class Imu:
 
         self.pitch_bias = self.nominal_pitch_bias + self.user_pitch_bias
 
+        # 获取当前文件所在目录
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        imu_calib_file = os.path.join(current_dir, "imu_calib_data.pkl")
+
         if self.calibrate:
             self.imu.mode = adafruit_bno055.NDOF_MODE
             calibrated = self.imu.calibrated
@@ -76,13 +80,13 @@ class Imu:
             for k, v in imu_calib_data.items():
                 print(k, v)
 
-            pickle.dump(imu_calib_data, open("imu_calib_data.pkl", "wb"))
+            pickle.dump(imu_calib_data, open(imu_calib_file, "wb"))
 
-            print("Saved", "imu_calib_data.pkl")
+            print("Saved", imu_calib_file)
             exit()
 
-        if os.path.exists("imu_calib_data.pkl"):
-            imu_calib_data = pickle.load(open("imu_calib_data.pkl", "rb"))
+        if os.path.exists(imu_calib_file):
+            imu_calib_data = pickle.load(open(imu_calib_file, "rb"))
             self.imu.mode = adafruit_bno055.CONFIG_MODE
             time.sleep(0.1)
             self.imu.offsets_accelerometer = imu_calib_data["offsets_accelerometer"]
@@ -91,7 +95,7 @@ class Imu:
             self.imu.mode = adafruit_bno055.IMUPLUS_MODE
             time.sleep(0.1)
         else:
-            print("imu_calib_data.pkl not found")
+            print(f"{imu_calib_file} not found")
             print("Imu is running uncalibrated")
 
         self.last_imu_data = [0, 0, 0, 0]
