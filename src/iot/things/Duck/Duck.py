@@ -128,8 +128,12 @@ class Duck(Thing):
     def _ensure_running(self):
         """确保鸭子机器人正在运行"""
         if not self.is_running:
-            # 如果已经停止，需要手动重新启动
-            return {"status": "error", "message": "鸭子机器人已停止，请先说'启动鸭子机器人'"}
+            # 如果未运行，自动启动
+            print("[鸭子机器人] 检测到机器人未运行，自动启动...")
+            start_result = self._start()
+            if start_result["status"] != "success":
+                return {"status": "error", "message": "鸭子机器人自动启动失败，请先说'启动鸭子机器人'"}
+            return {"status": "success"}
         return {"status": "success"}
     
     def _move_forward(self):
