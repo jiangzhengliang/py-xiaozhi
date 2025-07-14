@@ -1,10 +1,10 @@
 from periphery import pwm
 import numpy as np
 import time
+from threading import Thread
 
 LEFT_ANTENNA_PWM = 2
 RIGHT_ANTENNA_PWM = 3
-
 
 LEFT_SIGN = 1
 RIGHT_SIGN = -1
@@ -27,6 +27,14 @@ class Antennas:
 
         self.pwm1.enable()
         self.pwm2.enable()
+
+        # 耳朵动作参数
+        self.ear_movement_duration = 0.5  # 耳朵动作持续时间（秒）
+        self.ear_movement_interval = 15.0  # 耳朵动作间隔（秒）
+        self.ear_movement_amplitude = 0.3  # 耳朵动作幅度（-1到1之间）
+
+        # 启动后台线程
+        Thread(target=self.run, daemon=True).start()
 
     def map_input_to_angle(self, value):
         return 90 + (value * 90)
@@ -60,6 +68,44 @@ class Antennas:
         else:
             print("Invalid input! Enter a value between -1 and 1.")
 
+    def move_ears(self):
+        """
+        执行耳朵动作：左右摆动一下
+        """
+        try:
+            # 向左摆动
+            self.set_position_left(self.ear_movement_amplitude)
+            self.set_position_right(-self.ear_movement_amplitude)
+            time.sleep(self.ear_movement_duration)
+            
+            # 向右摆动
+            self.set_position_left(-self.ear_movement_amplitude)
+            self.set_position_right(self.ear_movement_amplitude)
+            time.sleep(self.ear_movement_duration)
+            
+            # 回到中间位置
+            self.set_position_left(0)
+            self.set_position_right(0)
+            
+        except Exception as e:
+            print(f"耳朵动作执行失败: {e}")
+
+    def run(self):
+        """
+        后台线程：每隔15秒动一下耳朵
+        """
+        while True:
+            try:
+                # 等待指定的间隔时间
+                time.sleep(self.ear_movement_interval)
+                
+                # 执行耳朵动作
+                self.move_ears()
+                
+            except Exception as e:
+                print(f"耳朵动作线程错误: {e}")
+                time.sleep(1)  # 出错时等待1秒再继续
+
     def stop(self):
         self.pwm1.close()
         self.pwm2.close()
@@ -67,14 +113,13 @@ class Antennas:
 
 if __name__ == "__main__":
     antennas = Antennas()
-
-    s = time.time()
-    while True:
-        antennas.set_position_left(np.sin(2 * np.pi * 1 * time.time()))
-        antennas.set_position_right(np.sin(2 * np.pi * 1 * time.time()))
-
-        time.sleep(1 / 50)
-
-        if time.time() - s > 5:
-            break
+    print("耳朵动作测试：每隔15秒动一下耳朵")
+    print("按 Ctrl+C 停止")
+    
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\n停止耳朵动作")
+        antennas.stop()
         
