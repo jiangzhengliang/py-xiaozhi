@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 import rustypot
-from .duck_config import DuckConfig
+from src.iot.things.Duck.duck_config import DuckConfig
 
 
 class HWI:
