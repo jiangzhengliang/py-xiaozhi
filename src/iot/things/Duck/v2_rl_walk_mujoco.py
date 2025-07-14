@@ -337,7 +337,8 @@ class RLWalk:
         voice_cmd = self.get_voice_command()
         
         if voice_cmd is None:
-            # 没有语音命令，保持当前状态
+            # 没有语音命令，停止移动（重置前3维为0）
+            self.last_commands[0:3] = [0.0, 0.0, 0.0]
             return
 
         # 根据语音命令设置控制参数（只修改前3维，保持头部控制为0）
@@ -484,9 +485,9 @@ class RLWalk:
                 except:
                     pass
 
-            # 保存观测数据（如果启用）
-            if self.save_obs:
-                pickle.dump(self.saved_obs, open("robot_saved_obs.pkl", "wb"))
+        # 保存观测数据（如果启用）
+        if self.save_obs:
+            pickle.dump(self.saved_obs, open("robot_saved_obs.pkl", "wb"))
             print("Duck control loop stopped")
 
     def pause(self):
