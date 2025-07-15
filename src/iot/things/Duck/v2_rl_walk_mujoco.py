@@ -359,12 +359,20 @@ class RLWalk:
         """
         启动控制循环
         """
-        if self.running:
+        # 检查是否已经有运行的控制线程
+        if self.running and hasattr(self, 'control_thread') and self.control_thread and self.control_thread.is_alive():
+            print("Control loop is already running")
             return
+            
+        # 如果标记为运行但线程已死，重置状态
+        if self.running and (not hasattr(self, 'control_thread') or not self.control_thread or not self.control_thread.is_alive()):
+            print("Control loop marked as running but thread is dead, restarting...")
+            self.running = False
             
         self.running = True
         self.control_thread = threading.Thread(target=self.run, daemon=True)
         self.control_thread.start()
+        print("Control loop started successfully")
 
 
 

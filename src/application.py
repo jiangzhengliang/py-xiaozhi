@@ -497,7 +497,64 @@ class Application:
             self.protocol.send_iot_descriptors(thing_manager.get_descriptors_json()),
             self.loop,
         )
+        
+        # 强制清空状态缓存并重新发送完整状态，确保休眠唤醒后状态同步
+        logger.info("音频通道重新打开，强制同步IoT设备状态")
+        thing_manager.clear_state_cache()
+        
+        # 延迟一小段时间确保连接稳定，然后同步状态
+        await asyncio.sleep(0.5)
         self._update_iot_states(False)
+        
+        # 特别处理鸭子机器人状态同步
+        await self._sync_duck_robot_state()
+
+    async def _sync_duck_robot_state(self):
+        """同步鸭子机器人状态，确保休眠唤醒后状态一致."""
+        try:
+            from src.iot.thing_manager import ThingManager
+            
+            thing_manager = ThingManager.get_instance()
+            
+            # 查找鸭子机器人设备
+            duck_thing = None
+            for thing in thing_manager.things:
+                if thing.name == "Duck":
+                    duck_thing = thing
+                    break
+            
+            if duck_thing:
+                logger.info("发现鸭子机器人设备，检查并同步状态")
+                
+                # 获取当前状态
+                current_status = getattr(duck_thing, 'current_status', 'idle')
+                is_running = getattr(duck_thing, 'is_running', False)
+                
+                logger.info(f"鸭子机器人当前状态: status={current_status}, running={is_running}")
+                
+                # 调用鸭子机器人的状态重置方法，确保休眠唤醒后状态正确
+                logger.info("调用鸭子机器人状态重置方法")
+                try:
+                    reset_result = duck_thing._reset_state()
+                    if reset_result["status"] == "success":
+                        logger.info("鸭子机器人状态重置成功")
+                    else:
+                        logger.warning(f"鸭子机器人状态重置失败: {reset_result.get('message', '未知错误')}")
+                except Exception as e:
+                    logger.error(f"调用鸭子机器人状态重置方法失败: {e}")
+                    # 手动重置状态
+                    if hasattr(duck_thing, 'rl_walk') and duck_thing.rl_walk and not duck_thing.rl_walk.running:
+                        duck_thing.is_running = False
+                        duck_thing.current_status = "error"
+                
+                # 强制更新一次状态到服务端
+                self._update_iot_states(False)
+                
+            else:
+                logger.debug("未找到鸭子机器人设备")
+                
+        except Exception as e:
+            logger.error(f"同步鸭子机器人状态时出错: {e}")
 
     def _start_audio_streams(self):
         """启动音频流."""

@@ -64,6 +64,7 @@ class Duck(Thing):
         self.add_method("Pause", "暂停鸭子机器人", [], lambda params: self._pause())
         self.add_method("Resume", "恢复鸭子机器人", [], lambda params: self._resume())
         self.add_method("GetStatus", "获取鸭子机器人状态", [], lambda params: self._get_status())
+        self.add_method("ResetState", "重置鸭子机器人状态（用于休眠唤醒后恢复）", [], lambda params: self._reset_state())
         
     def _initialize(self):
         """初始化鸭子机器人"""
@@ -134,6 +135,35 @@ class Duck(Thing):
             if start_result["status"] != "success":
                 return {"status": "error", "message": "鸭子机器人自动启动失败，请先说'启动鸭子机器人'"}
             return {"status": "success"}
+        
+        # 即使显示为运行状态，也要检查控制循环是否真的在运行
+        if self.is_running and self.rl_walk:
+            # 检查控制循环状态
+            if not self.rl_walk.running:
+                print("[鸭子机器人] 检测到控制循环已停止，重新启动...")
+                try:
+                    self.rl_walk.start_control_loop()
+                    print("[鸭子机器人] 控制循环重新启动成功")
+                except Exception as e:
+                    print(f"[鸭子机器人] 重新启动控制循环失败: {e}")
+                    # 重置状态并尝试完整重启
+                    self.is_running = False
+                    self.current_status = "error"
+                    return self._ensure_running()  # 递归调用进行完整重启
+            
+            # 检查控制线程是否还活着
+            elif hasattr(self.rl_walk, 'control_thread') and self.rl_walk.control_thread and not self.rl_walk.control_thread.is_alive():
+                print("[鸭子机器人] 检测到控制线程已死亡，重新启动...")
+                try:
+                    self.rl_walk.start_control_loop()
+                    print("[鸭子机器人] 控制循环重新启动成功")
+                except Exception as e:
+                    print(f"[鸭子机器人] 重新启动控制循环失败: {e}")
+                    # 重置状态并尝试完整重启
+                    self.is_running = False
+                    self.current_status = "error"
+                    return self._ensure_running()  # 递归调用进行完整重启
+        
         return {"status": "success"}
     
     def _move_forward(self):
@@ -337,6 +367,71 @@ class Duck(Thing):
                 status["rl_walk_error"] = str(e)
         
         return {"status": "success", "data": status}
+    
+    def _reset_state(self):
+        """重置鸭子机器人状态（用于休眠唤醒后恢复）"""
+        try:
+            with self.status_lock:
+                print("[鸭子机器人] 执行状态重置...")
+                
+                # 记录当前状态
+                old_status = self.current_status
+                old_running = self.is_running
+                
+                # 如果当前显示为运行状态，进行全面检查
+                if self.is_running and self.rl_walk:
+                    # 检查控制循环状态
+                    if not self.rl_walk.running:
+                        print("[鸭子机器人] 检测到控制循环已停止，重新启动...")
+                        try:
+                            self.rl_walk.start_control_loop()
+                            print("[鸭子机器人] 控制循环重新启动成功")
+                            self.current_status = "running"
+                        except Exception as e:
+                            print(f"[鸭子机器人] 重新启动控制循环失败: {e}")
+                            self.is_running = False
+                            self.current_status = "error"
+                            return {"status": "error", "message": f"重新启动控制循环失败: {e}"}
+                    
+                    # 检查控制线程是否还活着
+                    elif hasattr(self.rl_walk, 'control_thread') and self.rl_walk.control_thread:
+                        if not self.rl_walk.control_thread.is_alive():
+                            print("[鸭子机器人] 检测到控制线程已死亡，重新启动...")
+                            try:
+                                self.rl_walk.start_control_loop()
+                                print("[鸭子机器人] 控制循环重新启动成功")
+                                self.current_status = "running"
+                            except Exception as e:
+                                print(f"[鸭子机器人] 重新启动控制循环失败: {e}")
+                                self.is_running = False
+                                self.current_status = "error"
+                                return {"status": "error", "message": f"重新启动控制循环失败: {e}"}
+                        else:
+                            print("[鸭子机器人] 控制循环和线程都正常运行，无需重置")
+                            self.current_status = "running"
+                    else:
+                        print("[鸭子机器人] 控制线程不存在，重新启动...")
+                        try:
+                            self.rl_walk.start_control_loop()
+                            print("[鸭子机器人] 控制循环重新启动成功")
+                            self.current_status = "running"
+                        except Exception as e:
+                            print(f"[鸭子机器人] 重新启动控制循环失败: {e}")
+                            self.is_running = False
+                            self.current_status = "error"
+                            return {"status": "error", "message": f"重新启动控制循环失败: {e}"}
+                else:
+                    # 如果未运行，重置为idle状态
+                    self.current_status = "idle"
+                
+                print(f"[鸭子机器人] 状态重置完成: {old_status}({old_running}) -> {self.current_status}({self.is_running})")
+                return {"status": "success", "message": "鸭子机器人状态重置成功"}
+                
+        except Exception as e:
+            error_msg = f"重置状态失败: {str(e)}"
+            print(f"[鸭子机器人] {error_msg}")
+            self.current_status = "error"
+            return {"status": "error", "message": error_msg}
     
     def __del__(self):
         """析构函数，确保资源清理"""

@@ -11,19 +11,19 @@
         "camera": false
     },
     "joints_offsets": {
-        "left_hip_yaw": -0.016,
-        "left_hip_roll": -0.086,
-        "left_hip_pitch": -0.093,
-        "left_knee": 0.037,
-        "left_ankle": -0.122,
+        "left_hip_yaw": -0.025,
+        "left_hip_roll": -0.095,
+        "left_hip_pitch": -0.234,
+        "left_knee": 0.005,
+        "left_ankle": 0.019,
         "neck_pitch": 0.0,
         "head_pitch": 0.0,
         "head_yaw": 0.0,
         "head_roll": -0.014,
-        "right_hip_yaw": 0.051,
-        "right_hip_roll": -0.078,
-        "right_hip_pitch": -0.028,
-        "right_knee": -0.002,
-        "right_ankle": 0.024
+        "right_hip_yaw": 0.028,
+        "right_hip_roll": -0.029,
+        "right_hip_pitch": 0.16,
+        "right_knee": 0.046,
+        "right_ankle": -0.039
     }
 }

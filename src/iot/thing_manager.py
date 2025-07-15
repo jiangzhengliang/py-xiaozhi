@@ -21,6 +21,11 @@ class ThingManager:
     def add_thing(self, thing: Thing) -> None:
         self.things.append(thing)
 
+    def clear_state_cache(self) -> None:
+        """清空状态缓存，强制下次获取时重新发送所有状态."""
+        self.last_states.clear()
+        logging.info("IoT设备状态缓存已清空")
+
     def get_descriptors_json(self) -> str:
         descriptors = [thing.get_descriptor_json() for thing in self.things]
         return json.dumps(descriptors)
